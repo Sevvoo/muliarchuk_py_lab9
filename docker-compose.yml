@@ -1,23 +1,23 @@
 services:
   postgres:
     image: postgres:15
-    container_name: phone_station_db
+    container_name: auto_workshop_db
     environment:
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: admin123
-      POSTGRES_DB: phone_station
+      POSTGRES_DB: auto_workshop
       POSTGRES_HOST_AUTH_METHOD: trust
     ports:
       - "5433:5432"
     volumes:
       - ./postgres_data:/var/lib/postgresql/data
     networks:
-      - phone_network
+      - auto_network
     restart: unless-stopped
 
   pgadmin:
     image: dpage/pgadmin4
-    container_name: phone_station_pgadmin
+    container_name: auto_workshop_pgadmin
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@admin.com
       PGADMIN_DEFAULT_PASSWORD: admin123
@@ -26,9 +26,9 @@ services:
     depends_on:
       - postgres
     networks:
-      - phone_network
+      - auto_network
     restart: unless-stopped
 
 networks:
-  phone_network:
+  auto_network:
     driver: bridge

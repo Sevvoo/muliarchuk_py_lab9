@@ -1,5 +1,5 @@
-# Головна програма для БД "Телефонна станція" (Варіант 9)
-# Виводить таблиці та виконує SQL запити
+# Головна програма для БД "Авто майстерня Ford" (Варіант 5)
+# Виводить таблиці та виконуе SQL запити
 
 import psycopg
 from tabulate import tabulate
@@ -9,7 +9,7 @@ from tabulate import tabulate
 DB_CONFIG = {
     'host': 'localhost',
     'port': 5433,
-    'dbname': 'phone_station',
+    'dbname': 'auto_workshop',
     'user': 'admin',
     'password': 'admin123'
 }
@@ -20,7 +20,7 @@ def get_connection():
     return psycopg.connect(**DB_CONFIG)
 
 
-# Виконати запит і повернути результат
+# Виконати запит і повернути резултат
 def execute_query(cursor, query, params=None):
     cursor.execute(query, params)
     columns = [desc[0] for desc in cursor.description]
@@ -46,157 +46,154 @@ def display_all_tables(cursor):
     # Клієнти
     columns, rows = execute_query(cursor, """
         SELECT client_id AS "Код клієнта", 
-               client_type AS "Тип клієнта", 
-               address AS "Адреса",
-               last_name AS "Прізвище", 
-               first_name AS "Ім'я", 
-               middle_name AS "По батькові"
+               company_name AS "Назва компанії", 
+               account_number AS "Розрах. рахунок",
+               phone AS "Телефон", 
+               contact_person AS "Контактна особа", 
+               address AS "Адреса"
         FROM clients
         ORDER BY client_id
     """)
     print_table("ТАБЛИЦЯ: КЛІЄНТИ (clients)", columns, rows)
     
-    # Тарифи
+    # Автомобілі
     columns, rows = execute_query(cursor, """
-        SELECT tariff_id AS "Код тарифу", 
-               call_type AS "Тип дзвінка", 
-               price_per_minute AS "Вартість за хвилину (грн)"
-        FROM tariffs
-        ORDER BY tariff_id
+        SELECT c.car_id AS "Код авто", 
+               c.car_model AS "Марка", 
+               c.new_car_price AS "Вартість нового (грн)",
+               c.client_id AS "Код клієнта",
+               cl.company_name AS "Клієнт"
+        FROM cars c
+        JOIN clients cl ON c.client_id = cl.client_id
+        ORDER BY c.car_id
     """)
-    print_table("ТАБЛИЦЯ: ТАРИФИ (tariffs)", columns, rows)
+    print_table("ТАБЛИЦЯ: АВТОМОБІЛІ (cars)", columns, rows)
     
-    # Телефони
+    # Ремонти
     columns, rows = execute_query(cursor, """
-        SELECT p.phone_number AS "Номер телефону", 
-               p.client_id AS "Код клієнта",
-               c.last_name || ' ' || c.first_name AS "Клієнт"
-        FROM phones p
-        JOIN clients c ON p.client_id = c.client_id
-        ORDER BY p.client_id, p.phone_number
+        SELECT r.repair_id AS "Код ремонту", 
+               r.start_date AS "Дата початку", 
+               c.car_model AS "Марка авто",
+               r.repair_type AS "Тип ремонту",
+               r.hour_rate AS "Тариф (грн/год)",
+               r.discount AS "Знижка (%)",
+               r.hours_needed AS "Годин"
+        FROM repairs r
+        JOIN cars c ON r.car_id = c.car_id
+        ORDER BY r.start_date, r.repair_id
     """)
-    print_table("ТАБЛИЦЯ: ТЕЛЕФОНИ (phones)", columns, rows)
-    
-    # Розмови
+    print_table("ТАБЛИЦЯ: РЕМОНТИ (repairs)", columns, rows)
+
+
+# Запит 1: Гарантійні ремонти, сортувння по клієнту
+def query_1_warranty_repairs(cursor):
     columns, rows = execute_query(cursor, """
-        SELECT c.call_id AS "Код розмови", 
-               c.call_date AS "Дата розмови", 
-               c.phone_number AS "Номер телефону",
-               c.duration_minutes AS "Тривалість (хв)", 
-               t.call_type AS "Тип дзвінка"
-        FROM calls c
-        JOIN tariffs t ON c.tariff_id = t.tariff_id
-        ORDER BY c.call_date, c.call_id
+        SELECT r.repair_id AS "Код ремонту",
+               r.start_date AS "Дата",
+               cl.company_name AS "Клієнт",
+               c.car_model AS "Марка авто",
+               r.hours_needed AS "Годин",
+               r.hour_rate AS "Тариф"
+        FROM repairs r
+        JOIN cars c ON r.car_id = c.car_id
+        JOIN clients cl ON c.client_id = cl.client_id
+        WHERE r.repair_type = 'гарантійний'
+        ORDER BY cl.company_name
     """)
-    print_table("ТАБЛИЦЯ: РОЗМОВИ (calls)", columns, rows)
+    print_table("ЗАПИТ 1: Гарантійні ремонти (сортування за клієнтом)", columns, rows)
 
 
-# Запит 1: Фізичні особи, сортування по прізвищу
-def query_1_physical_persons(cursor):
+# Запит 2: Вартість ремонту з урахуваням знижки (обчислювальне поле)
+def query_2_repair_cost(cursor):
     columns, rows = execute_query(cursor, """
-        SELECT client_id AS "Код клієнта", 
-               last_name AS "Прізвище", 
-               first_name AS "Ім'я", 
-               middle_name AS "По батькові",
-               address AS "Адреса"
-        FROM clients
-        WHERE client_type = 'фізична особа'
-        ORDER BY last_name
+        SELECT r.repair_id AS "Код ремонту",
+               c.car_model AS "Марка",
+               r.repair_type AS "Тип ремонту",
+               r.hour_rate AS "Тариф (грн/год)",
+               r.hours_needed AS "Годин",
+               r.discount AS "Знижка (%)",
+               ROUND(r.hour_rate * r.hours_needed, 2) AS "Вартість (грн)",
+               ROUND(r.hour_rate * r.hours_needed * (1 - r.discount/100), 2) AS "Зі знижкою (грн)"
+        FROM repairs r
+        JOIN cars c ON r.car_id = c.car_id
+        ORDER BY r.repair_id
     """)
-    print_table("ЗАПИТ 1: Клієнти - фізичні особи (сортування за прізвищем)", columns, rows)
+    print_table("ЗАПИТ 2: Вартість ремонту зі знижкою (обчислювальне поле)", columns, rows)
 
 
-# Запит 2: Кількість клієнтів за типом (підсумковий)
-def query_2_count_by_type(cursor):
+# Запит 3: Ремонти для заданої марки авто (параметризований)
+def query_3_repairs_by_model(cursor, car_model):
     columns, rows = execute_query(cursor, """
-        SELECT client_type AS "Тип клієнта", 
-               COUNT(*) AS "Кількість клієнтів"
-        FROM clients
-        GROUP BY client_type
-        ORDER BY client_type
-    """)
-    print_table("ЗАПИТ 2: Кількість клієнтів за типом (підсумковий запит)", columns, rows)
+        SELECT r.repair_id AS "Код ремонту",
+               r.start_date AS "Дата",
+               cl.company_name AS "Клієнт",
+               c.car_model AS "Марка",
+               r.repair_type AS "Тип",
+               r.hours_needed AS "Годин",
+               ROUND(r.hour_rate * r.hours_needed * (1 - r.discount/100), 2) AS "Вартість (грн)"
+        FROM repairs r
+        JOIN cars c ON r.car_id = c.car_id
+        JOIN clients cl ON c.client_id = cl.client_id
+        WHERE c.car_model = %s
+        ORDER BY r.start_date
+    """, (car_model,))
+    print_table(f"ЗАПИТ 3: Ремонти для марки '{car_model}' (параметризований)", columns, rows)
 
 
-# Запит 3: Вартість розмови (обчислювальне поле)
-def query_3_call_cost(cursor):
-    columns, rows = execute_query(cursor, """
-        SELECT c.call_id AS "Код розмови",
-               c.call_date AS "Дата",
-               c.phone_number AS "Номер телефону",
-               t.call_type AS "Тип дзвінка",
-               c.duration_minutes AS "Хвилин",
-               t.price_per_minute AS "Тариф (грн/хв)",
-               ROUND(c.duration_minutes * t.price_per_minute, 2) AS "Вартість (грн)"
-        FROM calls c
-        JOIN tariffs t ON c.tariff_id = t.tariff_id
-        ORDER BY c.call_date, c.call_id
-    """)
-    print_table("ЗАПИТ 3: Вартість кожної розмови (обчислювальне поле)", columns, rows)
-
-
-# Запит 4: Розмови за типом дзвінка (параметризований)
-def query_4_calls_by_type(cursor, call_type):
-    columns, rows = execute_query(cursor, """
-        SELECT c.call_id AS "Код розмови",
-               c.call_date AS "Дата",
-               c.phone_number AS "Номер телефону",
-               cl.last_name || ' ' || cl.first_name AS "Клієнт",
-               c.duration_minutes AS "Хвилин",
-               t.call_type AS "Тип дзвінка"
-        FROM calls c
-        JOIN tariffs t ON c.tariff_id = t.tariff_id
-        JOIN phones p ON c.phone_number = p.phone_number
-        JOIN clients cl ON p.client_id = cl.client_id
-        WHERE t.call_type = %s
-        ORDER BY c.call_date
-    """, (call_type,))
-    print_table(f"ЗАПИТ 4: Розмови типу '{call_type}' (параметризований)", columns, rows)
-
-
-# Запит 5: Загальна вартість для клієнта (підсумковий)
-def query_5_total_cost_per_client(cursor):
+# Запит 4: Загальна сума для кожного клієнта (підсумковий)
+def query_4_total_per_client(cursor):
     columns, rows = execute_query(cursor, """
         SELECT cl.client_id AS "Код клієнта",
-               cl.last_name || ' ' || cl.first_name AS "Клієнт",
-               cl.client_type AS "Тип клієнта",
-               COUNT(c.call_id) AS "Кількість розмов",
-               SUM(c.duration_minutes) AS "Всього хвилин",
-               ROUND(SUM(c.duration_minutes * t.price_per_minute), 2) AS "Загальна вартість (грн)"
+               cl.company_name AS "Клієнт",
+               COUNT(r.repair_id) AS "Кількість ремонтів",
+               ROUND(SUM(r.hour_rate * r.hours_needed * (1 - r.discount/100)), 2) AS "Загальна сума (грн)"
         FROM clients cl
-        JOIN phones p ON cl.client_id = p.client_id
-        JOIN calls c ON p.phone_number = c.phone_number
-        JOIN tariffs t ON c.tariff_id = t.tariff_id
-        GROUP BY cl.client_id, cl.last_name, cl.first_name, cl.client_type
-        ORDER BY "Загальна вартість (грн)" DESC
+        JOIN cars c ON cl.client_id = c.client_id
+        JOIN repairs r ON c.car_id = r.car_id
+        GROUP BY cl.client_id, cl.company_name
+        ORDER BY "Загальна сума (грн)" DESC
     """)
-    print_table("ЗАПИТ 5: Загальна вартість розмов клієнта (підсумковий)", columns, rows)
+    print_table("ЗАПИТ 4: Загальна сума сплачена кожним клієнтом (підсумковий)", columns, rows)
 
 
-# Запит 6: Хвилини за типами для клієнта (перехресний)
-def query_6_crosstab(cursor):
+# Запит 5: Кількість типів ремонту для клієнта (перехресний)
+def query_5_crosstab(cursor):
     columns, rows = execute_query(cursor, """
-        SELECT cl.last_name || ' ' || cl.first_name AS "Клієнт",
-               COALESCE(SUM(CASE WHEN t.call_type = 'внутрішній' THEN c.duration_minutes END), 0) AS "Внутрішні (хв)",
-               COALESCE(SUM(CASE WHEN t.call_type = 'міжміський' THEN c.duration_minutes END), 0) AS "Міжміські (хв)",
-               COALESCE(SUM(CASE WHEN t.call_type = 'мобільний' THEN c.duration_minutes END), 0) AS "Мобільні (хв)",
-               SUM(c.duration_minutes) AS "Всього (хв)"
+        SELECT cl.company_name AS "Клієнт",
+               COALESCE(SUM(CASE WHEN r.repair_type = 'гарантійний' THEN 1 END), 0) AS "Гарантійний",
+               COALESCE(SUM(CASE WHEN r.repair_type = 'плановий' THEN 1 END), 0) AS "Плановий",
+               COALESCE(SUM(CASE WHEN r.repair_type = 'капітальний' THEN 1 END), 0) AS "Капітальний",
+               COUNT(r.repair_id) AS "Всього"
         FROM clients cl
-        JOIN phones p ON cl.client_id = p.client_id
-        JOIN calls c ON p.phone_number = c.phone_number
-        JOIN tariffs t ON c.tariff_id = t.tariff_id
-        GROUP BY cl.client_id, cl.last_name, cl.first_name
-        ORDER BY cl.last_name
+        JOIN cars c ON cl.client_id = c.client_id
+        JOIN repairs r ON c.car_id = r.car_id
+        GROUP BY cl.client_id, cl.company_name
+        ORDER BY cl.company_name
     """)
-    print_table("ЗАПИТ 6: Хвилини за типами дзвінків (перехресний запит)", columns, rows)
+    print_table("ЗАПИТ 5: Кількість типів ремонту для клієнта (перехресний)", columns, rows)
+
+
+# Запит 6: Кількість ремонтів для кожної марки
+def query_6_repairs_by_model(cursor):
+    columns, rows = execute_query(cursor, """
+        SELECT c.car_model AS "Марка автомобіля",
+               COUNT(r.repair_id) AS "Кількість ремонтів",
+               ROUND(AVG(r.hours_needed), 1) AS "Середня к-ть годин",
+               ROUND(SUM(r.hour_rate * r.hours_needed * (1 - r.discount/100)), 2) AS "Загальна сума (грн)"
+        FROM cars c
+        JOIN repairs r ON c.car_id = r.car_id
+        GROUP BY c.car_model
+        ORDER BY "Кількість ремонтів" DESC
+    """)
+    print_table("ЗАПИТ 6: Кількість ремонтів для кожної марки", columns, rows)
 
 
 # Головна функція
 def main():
     print("\n" + "#" * 80)
     print("#" + " " * 78 + "#")
-    print("#" + "  ЛАБОРАТОРНА РОБОТА №9  -  ТЕЛЕФОННА СТАНЦІЯ  ".center(78) + "#")
-    print("#" + "  PostgreSQL + Python  ".center(78) + "#")
+    print("#" + "  ЛАБОРАТОРНА РОБОТА №9  -  АВТО МАЙСТЕРНЯ FORD  ".center(78) + "#")
+    print("#" + "  PostgreSQL + Python (Варіант 5)  ".center(78) + "#")
     print("#" + " " * 78 + "#")
     print("#" * 80)
     
@@ -217,16 +214,16 @@ def main():
         print("  РЕЗУЛЬТАТИ SQL ЗАПИТІВ")
         print("~" * 80)
         
-        query_1_physical_persons(cursor)
-        query_2_count_by_type(cursor)
-        query_3_call_cost(cursor)
+        query_1_warranty_repairs(cursor)
+        query_2_repair_cost(cursor)
         
-        # Запит з параметром для всіх типів
-        for call_type in ['внутрішній', 'міжміський', 'мобільний']:
-            query_4_calls_by_type(cursor, call_type)
+        # Запит з параметром для всіх марок
+        for model in ['fiesta', 'focus', 'fusion', 'mondeo']:
+            query_3_repairs_by_model(cursor, model)
         
-        query_5_total_cost_per_client(cursor)
-        query_6_crosstab(cursor)
+        query_4_total_per_client(cursor)
+        query_5_crosstab(cursor)
+        query_6_repairs_by_model(cursor)
         
         print("\n" + "#" * 80)
         print("#" + "  ПРОГРАМА ЗАВЕРШЕНА УСПІШНО  ".center(78) + "#")
