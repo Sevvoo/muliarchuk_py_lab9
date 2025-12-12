@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Авто майстерня Ford</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #003399;
+            text-align: center;
+        }
+        h2 {
+            color: #0066cc;
+            margin-top: 30px;
+            border-bottom: 2px solid #0066cc;
+            padding-bottom: 5px;
+        }
+        .student-info {
+            font-style: italic;
+            color: #666;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+            background-color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        th {
+            background-color: #0066cc;
+            color: white;
+            font-weight: bold;
+            padding: 12px;
+            text-align: left;
+            border: 1px solid #ddd;
+        }
+        td {
+            padding: 10px;
+            border: 1px solid #ddd;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        tr:hover {
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Авто майстерня Ford</h1>
+        <div class="student-info">
+            <p><strong>{{ student_name }}</strong> | {{ student_group }}</p>
+        </div>
+
+        <h2>Клієнти</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Код клієнта</th>
+                    <th>Назва компанії</th>
+                    <th>Розрахунковий рахунок</th>
+                    <th>Телефон</th>
+                    <th>Контактна особа</th>
+                    <th>Адреса</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for client in clients %}
+                <tr>
+                    <td>{{ client.client_id }}</td>
+                    <td>{{ client.company_name }}</td>
+                    <td>{{ client.account_number }}</td>
+                    <td>{{ client.phone }}</td>
+                    <td>{{ client.contact_person }}</td>
+                    <td>{{ client.address }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <h2>Автомобілі</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Код автомобіля</th>
+                    <th>Марка</th>
+                    <th>Вартість нового (грн)</th>
+                    <th>Клієнт</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for car in cars %}
+                <tr>
+                    <td>{{ car.car_id }}</td>
+                    <td>{{ car.car_model }}</td>
+                    <td>{{ car.new_car_price }}</td>
+                    <td>{{ car.client.company_name }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <h2>Ремонти</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Код ремонту</th>
+                    <th>Дата початку</th>
+                    <th>Марка авто</th>
+                    <th>Клієнт</th>
+                    <th>Тип ремонту</th>
+                    <th>Тариф (грн/год)</th>
+                    <th>Знижка (%)</th>
+                    <th>Годин</th>
+                    <th>Вартість (грн)</th>
+                    <th>Зі знижкою (грн)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for repair in repairs %}
+                <tr>
+                    <td>{{ repair.repair_id }}</td>
+                    <td>{{ repair.start_date }}</td>
+                    <td>{{ repair.car.car_model }}</td>
+                    <td>{{ repair.car.client.company_name }}</td>
+                    <td>{{ repair.repair_type }}</td>
+                    <td>{{ repair.hour_rate }}</td>
+                    <td>{{ repair.discount }}</td>
+                    <td>{{ repair.hours_needed }}</td>
+                    <td>{{ repair.total_cost|floatformat:2 }}</td>
+                    <td>{{ repair.cost_with_discount|floatformat:2 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>

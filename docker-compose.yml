@@ -29,6 +29,26 @@ services:
       - auto_network
     restart: unless-stopped
 
+  django:
+    build: .
+    container_name: auto_workshop_django
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./django_app:/app
+    ports:
+      - "8001:8000"
+    depends_on:
+      - postgres
+    networks:
+      - auto_network
+    environment:
+      - DATABASE_HOST=postgres
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=auto_workshop
+      - DATABASE_USER=admin
+      - DATABASE_PASSWORD=admin123
+    restart: unless-stopped
+
 networks:
   auto_network:
     driver: bridge
